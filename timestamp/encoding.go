@@ -1,7 +1,10 @@
+// Package timestamp provides structs and functions for converting streams of timestamps
+// to byte slices.  The encoded format is
 package timestamp
 
 import (
 	"encoding/binary"
+	"math"
 	"time"
 
 	"github.com/jwilder/encoding/delta"
@@ -42,10 +45,10 @@ func (e *encoder) Bytes() ([]byte, error) {
 		enc.Write(uint64(v))
 	}
 
-	b := make([]byte, 8*3)
+	b := make([]byte, 8*2+1)
 	binary.BigEndian.PutUint64(b[0:8], uint64(min))
-	binary.BigEndian.PutUint64(b[8:16], uint64(mod))
-	binary.BigEndian.PutUint64(b[16:24], uint64(dts[0]))
+	b[8] = byte(math.Log10(float64(mod)))
+	binary.BigEndian.PutUint64(b[9:17], uint64(dts[0]))
 
 	deltas, err := enc.Bytes()
 	if err != nil {
@@ -85,10 +88,10 @@ func (d *decoder) decode(b []byte) {
 	}
 
 	min := int64(binary.BigEndian.Uint64(b[0:8]))
-	mod := int64(binary.BigEndian.Uint64(b[8:16]))
-	first := int64(binary.BigEndian.Uint64(b[16:24]))
+	mod := int64(math.Pow10(int(b[8])))
+	first := int64(binary.BigEndian.Uint64(b[9:17]))
 
-	enc := simple8b.NewDecoder(b[24:])
+	enc := simple8b.NewDecoder(b[17:])
 
 	deltas := []int64{first}
 	for enc.Next() {

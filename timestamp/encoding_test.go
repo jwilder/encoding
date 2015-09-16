@@ -168,3 +168,64 @@ func Test_Encode_Large_Range(t *testing.T) {
 		t.Fatalf("read value mismatch: got %v, exp %v", dec.Read(), t2)
 	}
 }
+
+func Test_Encode_Reverse(t *testing.T) {
+	enc := timestamp.NewEncoder()
+	ts := []time.Time{
+		time.Unix(0, 3),
+		time.Unix(0, 2),
+		time.Unix(0, 1),
+	}
+
+	for _, v := range ts {
+		enc.Write(v)
+	}
+
+	b, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dec := timestamp.NewDecoder(b)
+	i := 0
+	for dec.Next() {
+		if ts[i] != dec.Read() {
+			t.Fatalf("read value %d mismatch: got %v, exp %v", i, dec.Read(), ts[i])
+		}
+		i += 1
+	}
+}
+
+func Test_Encode_220SecondDelta(t *testing.T) {
+	enc := timestamp.NewEncoder()
+	var ts []time.Time
+	for i := 0; i < 220; i++ {
+		ts = append(ts, time.Unix(int64(i), 0))
+	}
+
+	for _, v := range ts {
+		enc.Write(v)
+	}
+
+	b, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dec := timestamp.NewDecoder(b)
+	i := 0
+	for dec.Next() {
+		if ts[i] != dec.Read() {
+			t.Fatalf("read value %d mismatch: got %v, exp %v", i, dec.Read(), ts[i])
+		}
+		i += 1
+	}
+
+	if i != len(ts) {
+		t.Fatalf("Read too few values: exp %d, got %d", len(ts), i)
+	}
+
+	if dec.Next() {
+		t.Fatalf("expecte Next() = false, got true")
+	}
+}
