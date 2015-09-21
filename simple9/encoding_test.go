@@ -311,13 +311,11 @@ func BenchmarkEncode(b *testing.B) {
 		x[i] = uint32(15)
 	}
 
-	//s := time.Now()
 	for i := 0; i < b.N; i++ {
 		Encode(x)
 		b.SetBytes(int64(len(x) * 4))
 		total += len(x)
 	}
-	//fmt.Printf("%0.2f/s\n", (float64(total) / time.Since(s).Seconds()))
 }
 
 func BenchmarkDecode(b *testing.B) {
@@ -331,7 +329,6 @@ func BenchmarkDecode(b *testing.B) {
 
 	decoded := make([]uint32, len(x))
 
-	//s := time.Now()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -339,5 +336,4 @@ func BenchmarkDecode(b *testing.B) {
 		b.SetBytes(int64(len(decoded) * 4))
 		total += len(decoded)
 	}
-	//fmt.Printf("%0.2f/s\n", (float64(total) / time.Since(s).Seconds()))
 }
