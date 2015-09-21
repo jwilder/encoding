@@ -27,6 +27,8 @@ import (
 	"github.com/jwilder/encoding/bitops"
 )
 
+const MaxValue = (1 << 60) - 1
+
 // Encoder converts a stream of unsigned 64bit integers to a compressed byte slice.
 type Encoder interface {
 	// Write writes a uint64 to the stream.
@@ -250,17 +252,17 @@ func Decode(dst, src []uint64) (int, error) {
 	return j, nil
 }
 
-// pack240 packs 240 zeros from in using 1 bit each
+// pack240 packs 240 ones from in using 1 bit each
 func pack240(src []uint64) uint64 {
 	return 0
 }
 
-// pack120 packs 120 zeros from in using 1 bit each
+// pack120 packs 120 ones from in using 1 bit each
 func pack120(src []uint64) uint64 {
 	return 0
 }
 
-// pack60 packs 60 zeros from in using 1 bit each
+// pack60 packs 60 values from in using 1 bit each
 func pack60(src []uint64) uint64 {
 	return 2<<60 |
 		src[0] |
@@ -516,13 +518,13 @@ func pack1(src []uint64) uint64 {
 
 func unpack240(v uint64, dst []uint64) {
 	for i := range dst {
-		dst[i] = 0
+		dst[i] = 1
 	}
 }
 
 func unpack120(v uint64, dst []uint64) {
 	for i := range dst {
-		dst[i] = 0
+		dst[i] = 1
 	}
 }
 

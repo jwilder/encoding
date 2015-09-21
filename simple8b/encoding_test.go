@@ -34,12 +34,12 @@ func Test_FewValues(t *testing.T) {
 	testEncode(t, 20, 2)
 }
 
-func Test_Encode_240Zeros(t *testing.T) {
-	testEncode(t, 240, 0)
+func Test_Encode_240Ones(t *testing.T) {
+	testEncode(t, 240, 1)
 }
 
 func Test_Encode_120Zeros(t *testing.T) {
-	testEncode(t, 120, 0)
+	testEncode(t, 120, 1)
 }
 
 func Test_Encode_60(t *testing.T) {
@@ -164,13 +164,11 @@ func BenchmarkEncode(b *testing.B) {
 	}
 
 	b.ResetTimer()
-	//s := time.Now()
 	for i := 0; i < b.N; i++ {
 		simple8b.Encode(x)
 		b.SetBytes(int64(len(x) * 8))
 		total += len(x)
 	}
-	//fmt.Printf("%0.2f/s\n", (float64(total) / time.Since(s).Seconds()))
 }
 
 func BenchmarkDecode(b *testing.B) {
@@ -184,7 +182,6 @@ func BenchmarkDecode(b *testing.B) {
 
 	decoded := make([]uint64, len(x))
 
-	//s := time.Now()
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
@@ -192,5 +189,4 @@ func BenchmarkDecode(b *testing.B) {
 		b.SetBytes(int64(len(decoded) * 8))
 		total += len(decoded)
 	}
-	//fmt.Printf("%0.2f/s\n", (float64(total) / time.Since(s).Seconds()))
 }
