@@ -74,10 +74,7 @@ func CanPack(src []uint64, n, bits int) bool {
 		end = n
 	}
 
-	max := uint64(0)
-	if bits > 0 {
-		max = uint64((2 << uint64(bits-1)) - 1)
-	}
+	max := uint64((2 << uint64(bits-1)) - 1)
 
 	for i := 0; i < end; i++ {
 		if src[i] > max {
