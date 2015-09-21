@@ -28,21 +28,27 @@ func InverseDelta(dst, src []int64) {
 // succesive values in src using a frame of reference from the minimum
 // and scaling each value by the largest factor of 10.  The resulting deltas
 // are all positive integers
-func FORDelta10(src []int64) (int64, int64, []int64) {
+func FORDelta10(src []int64) (min, max, mod int64, rle bool, dst []int64) {
 	if len(src) == 0 {
-		return 0, 0, src
+		return 0, 0, 0, false, src
 	}
 
 	// The output size
-	dst := make([]int64, len(src))
+	dst = make([]int64, len(src))
 	Delta(dst, src)
 
-	min, mod := reference10(dst)
+	min, max, mod = reference10(dst)
+
+	// Are the deltas able to be run-length encoded?
+	rle = true
 	for i := 1; i < len(dst); i++ {
 		dst[i] = (dst[i] - min) / mod
+		// Skip the first value || see if prev = curr
+		rle = i == 1 || rle && (dst[i-1] == dst[i])
 	}
 
-	return min, mod, dst
+	rle = rle && len(dst) > 1
+	return min, max, mod, rle, dst
 }
 
 func InverseFORDelta10(min, mod int64, src []int64) []int64 {
@@ -63,8 +69,9 @@ func InverseFORDelta10(min, mod int64, src []int64) []int64 {
 
 // reference returns the minimum and the largest common divisor of
 // in that is also a factor of 10.
-func reference10(src []int64) (min, divisor int64) {
+func reference10(src []int64) (min, max, divisor int64) {
 	min = src[0]
+	max = 0
 	divisor = int64(1e12)
 	for i, v := range src {
 		if i == 0 {
@@ -72,6 +79,10 @@ func reference10(src []int64) (min, divisor int64) {
 		}
 		if v < min {
 			min = v
+		}
+
+		if v > max {
+			max = v
 		}
 
 		for {

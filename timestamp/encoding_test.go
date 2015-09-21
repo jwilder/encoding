@@ -169,6 +169,89 @@ func Test_Encode_Large_Range(t *testing.T) {
 	}
 }
 
+func Test_Encode_Raw(t *testing.T) {
+	enc := timestamp.NewEncoder()
+	t1 := time.Unix(0, 0)
+	t2 := time.Unix(1, 0)
+
+	// about 36.5yrs in NS resolution is max range for compressed format
+	// This should cause the encoding to fallback to raw points
+	t3 := time.Unix(2, (2 << 59))
+	enc.Write(t1)
+	enc.Write(t2)
+	enc.Write(t3)
+
+	b, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("expected error: %v", err)
+	}
+
+	if exp := 25; len(b) != exp {
+		t.Fatalf("length mismatch: got %v, exp %v", len(b), exp)
+	}
+
+	dec := timestamp.NewDecoder(b)
+	if !dec.Next() {
+		t.Fatalf("unexpected next value: got true, exp false")
+	}
+
+	if t1 != dec.Read() {
+		t.Fatalf("read value mismatch: got %v, exp %v", dec.Read(), t1)
+	}
+
+	if !dec.Next() {
+		t.Fatalf("unexpected next value: got true, exp false")
+	}
+
+	if t2 != dec.Read() {
+		t.Fatalf("read value mismatch: got %v, exp %v", dec.Read(), t2)
+	}
+
+	if !dec.Next() {
+		t.Fatalf("unexpected next value: got true, exp false")
+	}
+
+	if t3 != dec.Read() {
+		t.Fatalf("read value mismatch: got %v, exp %v", dec.Read(), t3)
+	}
+}
+
+func Test_Encode_RLE(t *testing.T) {
+	enc := timestamp.NewEncoder()
+	var ts []time.Time
+	for i := 0; i < 500; i++ {
+		ts = append(ts, time.Unix(int64(i), 0))
+	}
+
+	for _, v := range ts {
+		enc.Write(v)
+	}
+
+	b, err := enc.Bytes()
+	if exp := 12; len(b) != exp {
+		t.Fatalf("length mismatch: got %v, exp %v", len(b), exp)
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dec := timestamp.NewDecoder(b)
+	for i, v := range ts {
+		if !dec.Next() {
+			t.Fatalf("Next == false, expected true")
+		}
+
+		if v != dec.Read() {
+			t.Fatalf("Item %d mismatch, got %v, exp %v", i, dec.Read(), v)
+		}
+	}
+
+	if dec.Next() {
+		t.Fatalf("unexpected extra values")
+	}
+}
+
 func Test_Encode_Reverse(t *testing.T) {
 	enc := timestamp.NewEncoder()
 	ts := []time.Time{
@@ -227,5 +310,39 @@ func Test_Encode_220SecondDelta(t *testing.T) {
 
 	if dec.Next() {
 		t.Fatalf("expecte Next() = false, got true")
+	}
+}
+
+func BenchmarkEncode(b *testing.B) {
+	enc := timestamp.NewEncoder()
+	x := make([]time.Time, 1024)
+	for i := 0; i < len(x); i++ {
+		x[i] = time.Now()
+		enc.Write(x[i])
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		enc.Bytes()
+	}
+}
+
+func BenchmarkDecode(b *testing.B) {
+	x := make([]time.Time, 1024)
+	enc := timestamp.NewEncoder()
+	for i := 0; i < len(x); i++ {
+		x[i] = time.Now()
+		enc.Write(x[i])
+	}
+	bytes, _ := enc.Bytes()
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		dec := timestamp.NewDecoder(bytes)
+		b.StartTimer()
+		for dec.Next() {
+		}
 	}
 }
