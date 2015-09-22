@@ -62,25 +62,3 @@ func msb64(n uint64) int {
 	r += v >> 1
 	return int(r)
 }
-
-// CanPack returs true if n elements from in can be stored using bits per element
-func CanPack(src []uint64, n, bits int) bool {
-	if len(src) < n {
-		return false
-	}
-
-	end := len(src)
-	if n < end {
-		end = n
-	}
-
-	max := uint64((2 << uint64(bits-1)) - 1)
-
-	for i := 0; i < end; i++ {
-		if src[i] > max {
-			return false
-		}
-	}
-
-	return true
-}

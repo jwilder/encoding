@@ -23,8 +23,6 @@ package simple8b
 import (
 	"encoding/binary"
 	"fmt"
-
-	"github.com/jwilder/encoding/bitops"
 )
 
 const MaxValue = (1 << 60) - 1
@@ -181,52 +179,52 @@ func Encode(src []uint64) ([]uint64, error) {
 		}
 		remaining := src[i:]
 
-		if bitops.CanPack(remaining, 240, 0) {
+		if canPack(remaining, 240, 0) {
 			dst[j] = 0
 			i += 240
-		} else if bitops.CanPack(remaining, 120, 0) {
+		} else if canPack(remaining, 120, 0) {
 			dst[j] = 1 << 60
 			i += 120
-		} else if bitops.CanPack(remaining, 60, 1) {
+		} else if canPack(remaining, 60, 1) {
 			dst[j] = pack60(src[i : i+60])
 			i += 60
-		} else if bitops.CanPack(remaining, 30, 2) {
+		} else if canPack(remaining, 30, 2) {
 			dst[j] = pack30(src[i : i+30])
 			i += 30
-		} else if bitops.CanPack(remaining, 20, 3) {
+		} else if canPack(remaining, 20, 3) {
 			dst[j] = pack20(src[i : i+20])
 			i += 20
-		} else if bitops.CanPack(remaining, 15, 4) {
+		} else if canPack(remaining, 15, 4) {
 			dst[j] = pack15(src[i : i+15])
 			i += 15
-		} else if bitops.CanPack(remaining, 12, 5) {
+		} else if canPack(remaining, 12, 5) {
 			dst[j] = pack12(src[i : i+12])
 			i += 12
-		} else if bitops.CanPack(remaining, 10, 6) {
+		} else if canPack(remaining, 10, 6) {
 			dst[j] = pack10(src[i : i+10])
 			i += 10
-		} else if bitops.CanPack(remaining, 8, 7) {
+		} else if canPack(remaining, 8, 7) {
 			dst[j] = pack8(src[i : i+8])
 			i += 8
-		} else if bitops.CanPack(remaining, 7, 8) {
+		} else if canPack(remaining, 7, 8) {
 			dst[j] = pack7(src[i : i+7])
 			i += 7
-		} else if bitops.CanPack(remaining, 6, 10) {
+		} else if canPack(remaining, 6, 10) {
 			dst[j] = pack6(src[i : i+6])
 			i += 6
-		} else if bitops.CanPack(remaining, 5, 12) {
+		} else if canPack(remaining, 5, 12) {
 			dst[j] = pack5(src[i : i+5])
 			i += 5
-		} else if bitops.CanPack(remaining, 4, 15) {
+		} else if canPack(remaining, 4, 15) {
 			dst[j] = pack4(src[i : i+4])
 			i += 4
-		} else if bitops.CanPack(remaining, 3, 20) {
+		} else if canPack(remaining, 3, 20) {
 			dst[j] = pack3(src[i : i+3])
 			i += 3
-		} else if bitops.CanPack(remaining, 2, 30) {
+		} else if canPack(remaining, 2, 30) {
 			dst[j] = pack2(src[i : i+2])
 			i += 2
-		} else if bitops.CanPack(remaining, 1, 60) {
+		} else if canPack(remaining, 1, 60) {
 			dst[j] = pack1(src[i : i+1])
 			i += 1
 		} else {
@@ -250,6 +248,32 @@ func Decode(dst, src []uint64) (int, error) {
 		j += selector[sel].n
 	}
 	return j, nil
+}
+
+// canPack returs true if n elements from in can be stored using bits per element
+func canPack(src []uint64, n, bits int) bool {
+	if len(src) < n {
+		return false
+	}
+
+	end := len(src)
+	if n < end {
+		end = n
+	}
+
+	// Selector 0,1 are special and use 0 bits to encode runs of 1's
+	max := uint64(1)
+	if bits > 0 {
+		max = uint64((1 << uint64(bits)) - 1)
+	}
+
+	for i := 0; i < end; i++ {
+		if src[i] > max {
+			return false
+		}
+	}
+
+	return true
 }
 
 // pack240 packs 240 ones from in using 1 bit each
