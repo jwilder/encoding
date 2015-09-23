@@ -30,7 +30,7 @@ const MaxValue = (1 << 60) - 1
 // Encoder converts a stream of unsigned 64bit integers to a compressed byte slice.
 type Encoder interface {
 	// Write writes a uint64 to the stream.
-	Write(v uint64)
+	Write(v uint64) error
 
 	// Bytes returns the compressed uint64 as a byte slice.
 	Bytes() ([]byte, error)
@@ -60,13 +60,16 @@ func NewEncoder() Encoder {
 	}
 }
 
-func (e *encoder) Write(v uint64) {
+func (e *encoder) Write(v uint64) error {
 	if e.i >= len(e.buf) {
-		e.flush()
+		if err := e.flush(); err != nil {
+			return err
+		}
 	}
 
 	e.buf[e.i] = v
 	e.i += 1
+	return nil
 }
 
 func (e *encoder) flush() error {
