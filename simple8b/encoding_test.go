@@ -6,6 +6,14 @@ import (
 	"github.com/jwilder/encoding/simple8b"
 )
 
+type valueSetter interface {
+	SetValues(v []uint64)
+}
+
+type byteSetter interface {
+	SetBytes(v []byte)
+}
+
 func Test_Encode_NoValues(t *testing.T) {
 	var in []uint64
 	encoded, _ := simple8b.Encode(in)
@@ -38,7 +46,7 @@ func Test_Encode_240Ones(t *testing.T) {
 	testEncode(t, 240, 1)
 }
 
-func Test_Encode_120Zeros(t *testing.T) {
+func Test_Encode_120Ones(t *testing.T) {
 	testEncode(t, 120, 1)
 }
 
@@ -99,26 +107,36 @@ func Test_Encode_1(t *testing.T) {
 }
 
 func testEncode(t *testing.T, n int, val uint64) {
+	enc := simple8b.NewEncoder()
 	in := make([]uint64, n)
 	for i := 0; i < n; i++ {
 		in[i] = val
-	}
-	encoded, _ := simple8b.Encode(in)
-	if exp, got := len(in)/n, len(encoded); got != exp {
-		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
+
+		// Don't create a range for the special 1 selectors (0,1)
+		if val != 1 {
+			in[i] = val / uint64(i+1)
+		}
+		enc.Write(in[i])
 	}
 
-	decoded := make([]uint64, len(in))
-	nv, _ := simple8b.Decode(decoded, encoded)
-	if exp, got := n, len(decoded[:nv]); got != exp {
+	encoded, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	dec := simple8b.NewDecoder(encoded)
+	i := 0
+	for dec.Next() {
+		if dec.Read() != in[i] {
+			t.Fatalf("Decoded[%d] != %v, got %v", i, in[i], dec.Read())
+		}
+		i += 1
+	}
+
+	if exp, got := n, i; got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
 
-	for i := 0; i < n; i++ {
-		if exp := uint64(val); decoded[i] != exp {
-			t.Fatalf("Decoded[%d] != %v, got %v", i, exp, decoded[i])
-		}
-	}
 }
 
 func Test_Bytes(t *testing.T) {
@@ -171,6 +189,20 @@ func BenchmarkEncode(b *testing.B) {
 	}
 }
 
+func BenchmarkEncoder(b *testing.B) {
+	x := make([]uint64, 1024)
+	for i := 0; i < len(x); i++ {
+		x[i] = uint64(15)
+	}
+
+	enc := simple8b.NewEncoder()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		enc.(valueSetter).SetValues(x)
+		enc.Bytes()
+		b.SetBytes(int64(len(x)) * 8)
+	}
+}
 func BenchmarkDecode(b *testing.B) {
 	total := 0
 
@@ -188,5 +220,27 @@ func BenchmarkDecode(b *testing.B) {
 		_, _ = simple8b.Decode(decoded, y)
 		b.SetBytes(int64(len(decoded) * 8))
 		total += len(decoded)
+	}
+}
+
+func BenchmarkDecoder(b *testing.B) {
+	enc := simple8b.NewEncoder()
+	x := make([]uint64, 1024)
+	for i := 0; i < len(x); i++ {
+		x[i] = uint64(10)
+		enc.Write(x[i])
+	}
+	y, _ := enc.Bytes()
+
+	b.ResetTimer()
+
+	dec := simple8b.NewDecoder(y)
+	for i := 0; i < b.N; i++ {
+		dec.(byteSetter).SetBytes(y)
+		j := 0
+		for dec.Next() {
+			j += 1
+		}
+		b.SetBytes(int64(j * 8))
 	}
 }
