@@ -34,73 +34,115 @@ type Encoder interface {
 
 	// Bytes returns the compressed uint64 as a byte slice.
 	Bytes() ([]byte, error)
+
+	Reset()
 }
 
 // Decoder converts a compressed byte slice to a stream of unsigned 64bit integers.
 type Decoder interface {
 	Next() bool
 	Read() uint64
+	SetBytes(b []byte)
 }
 
 type encoder struct {
 	// most recently written integers that have not been flushed
 	buf []uint64
 
-	// index in buf of the last value written
-	i int
+	// index in buf of the head of the buf
+	h int
+
+	// index in buf of the tail of the buf
+	t int
+
+	// index into bytes of written bytes
+	bp int
 
 	// current bytes written and flushed
 	bytes []byte
+	b     []byte
 }
 
 // NewEncoder returns an Encoder able to convert uint64s to compressed byte slices
 func NewEncoder() Encoder {
 	return &encoder{
-		buf: make([]uint64, 240),
+		buf:   make([]uint64, 240),
+		b:     make([]byte, 8),
+		bytes: make([]byte, 128),
 	}
 }
 
 func (e *encoder) SetValues(v []uint64) {
 	e.buf = v
-	e.i = len(v)
+	e.t = len(v)
+	e.h = 0
+	e.bytes = e.bytes[:0]
+}
+
+func (e *encoder) Reset() {
+	e.t = 0
+	e.h = 0
 	e.bytes = e.bytes[:0]
 }
 
 func (e *encoder) Write(v uint64) error {
-	if e.i >= len(e.buf) {
+	if e.t >= len(e.buf) {
 		if err := e.flush(); err != nil {
 			return err
 		}
 	}
 
-	e.buf[e.i] = v
-	e.i += 1
+	// The buf is full but there is space at the front, just shift
+	// the values down for now. TODO: use ring buffer
+	if e.t >= len(e.buf) {
+		copy(e.buf, e.buf[e.h:])
+		e.t -= e.h
+		e.h = 0
+	}
+	e.buf[e.t] = v
+	e.t += 1
 	return nil
 }
 
 func (e *encoder) flush() error {
-	if e.i == 0 {
+	if e.t == 0 {
 		return nil
 	}
 
-	encoded, err := Encode(e.buf[:e.i])
+	// encode as many values into one as we can
+	encoded, n, err := encode(e.buf[e.h:e.t])
 	if err != nil {
 		return err
 	}
-	b := make([]byte, 8)
-	for _, enc := range encoded {
-		binary.BigEndian.PutUint64(b, enc)
-		e.bytes = append(e.bytes, b...)
+	binary.BigEndian.PutUint64(e.b, encoded)
+	if e.bp+8 > len(e.bytes) {
+		e.bytes = append(e.bytes, e.b...)
+		e.bp = len(e.bytes)
+	} else {
+		copy(e.bytes[e.bp:e.bp+8], e.b)
+		e.bp += 8
 	}
-	e.i = 0
+
+	// Move the head forward since we encoded those values
+	e.h += n
+
+	// If we encoded them all, reset the head/tail pointers to the beginning
+	if e.h == e.t {
+		e.h = 0
+		e.t = 0
+	}
+
 	return nil
 }
 
 func (e *encoder) Bytes() ([]byte, error) {
-	if err := e.flush(); err != nil {
-		return nil, err
+	for e.t > 0 {
+		if err := e.flush(); err != nil {
+			return nil, err
+		}
 	}
-	return e.bytes, nil
+
+	return e.bytes[:e.bp], nil
 }
 
 type decoder struct {
@@ -150,7 +192,7 @@ func (d *decoder) read() {
 
 	v := binary.BigEndian.Uint64(d.bytes[:8])
 	d.bytes = d.bytes[8:]
-	d.n, _ = decode(d.buf, v)
+	d.n, _ = DecodeSingle(d.buf, v)
 	d.i = 0
 }
 
@@ -220,14 +262,14 @@ func encode(src []uint64) (uint64, int, error) {
 	}
 }
 
-// Encode returns a packed slice of the values from src.  It a value is over
-// 2 << 60, an error is returned.
+// Encode returns a packed slice of the values from src.  If a value is over
+// 1 << 60, an error is returned.  The input src is modified to avoid extra
+// allocations.  If you need to re-use, use a copy.
 func Encode(src []uint64) ([]uint64, error) {
 	i := 0
 
-	// Allocate enough space for the worst case where each element needs
-	// 60bits
-	dst := make([]uint64, len(src))
+	// Re-use the input slice and write encoded values back in place
+	dst := src
 	j := 0
 
 	for {
@@ -292,7 +334,7 @@ func Encode(src []uint64) ([]uint64, error) {
 	return dst[:j], nil
 }
 
-func decode(dst []uint64, v uint64) (int, error) {
+func DecodeSingle(dst []uint64, v uint64) (int, error) {
 	sel := v >> 60
 	if sel >= 16 {
 		return 0, fmt.Errorf("invalid selector value: %b", sel)
@@ -328,10 +370,16 @@ func canPack(src []uint64, n, bits int) bool {
 	}
 
 	// Selector 0,1 are special and use 0 bits to encode runs of 1's
-	max := uint64(1)
-	if bits > 0 {
-		max = uint64((1 << uint64(bits)) - 1)
+	if bits == 0 {
+		for _, v := range src {
+			if v != 1 {
+				return false
+			}
+		}
+		return true
 	}
+
+	max := uint64((1 << uint64(bits)) - 1)
 
 	for i := 0; i < end; i++ {
 		if src[i] > max {

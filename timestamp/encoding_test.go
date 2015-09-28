@@ -7,7 +7,7 @@ import (
 	"github.com/jwilder/encoding/timestamp"
 )
 
-func Test_MarshalBinary(t *testing.T) {
+func Test_MarshalBinary_Basic(t *testing.T) {
 	enc := timestamp.NewEncoder()
 
 	x := []time.Time{}
@@ -176,7 +176,7 @@ func Test_Encode_Raw(t *testing.T) {
 
 	// about 36.5yrs in NS resolution is max range for compressed format
 	// This should cause the encoding to fallback to raw points
-	t3 := time.Unix(2, (2 << 59))
+	t3 := time.Unix(2, (1 << 60))
 	enc.Write(t1)
 	enc.Write(t2)
 	enc.Write(t3)
@@ -272,6 +272,11 @@ func Test_Encode_Reverse(t *testing.T) {
 	dec := timestamp.NewDecoder(b)
 	i := 0
 	for dec.Next() {
+
+		if i >= len(ts) {
+			t.Fatalf("read too many values: got %v, exp %v", i, len(ts))
+		}
+
 		if ts[i] != dec.Read() {
 			t.Fatalf("read value %d mismatch: got %v, exp %v", i, dec.Read(), ts[i])
 		}
@@ -313,16 +318,22 @@ func Test_Encode_220SecondDelta(t *testing.T) {
 	}
 }
 
+type timeSetter interface {
+	SetTimes(v []uint64)
+}
+
 func BenchmarkEncode(b *testing.B) {
 	enc := timestamp.NewEncoder()
-	x := make([]time.Time, 1024)
+	x := make([]uint64, 1024)
 	for i := 0; i < len(x); i++ {
-		x[i] = time.Now()
-		enc.Write(x[i])
+		t := time.Now()
+		x[i] = uint64(t.UnixNano())
+		enc.Write(t)
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		enc.(timeSetter).SetTimes(x)
 		enc.Bytes()
 	}
 }

@@ -42,6 +42,18 @@ func Test_FewValues(t *testing.T) {
 	testEncode(t, 20, 2)
 }
 
+func Test_Encode_Multiple_Zeros(t *testing.T) {
+	testEncode(t, 250, 0)
+}
+
+func Test_Encode_Multiple_Ones(t *testing.T) {
+	testEncode(t, 250, 1)
+}
+
+func Test_Encode_Multiple_Large(t *testing.T) {
+	testEncode(t, 250, 134)
+}
+
 func Test_Encode_240Ones(t *testing.T) {
 	testEncode(t, 240, 1)
 }
@@ -111,11 +123,6 @@ func testEncode(t *testing.T, n int, val uint64) {
 	in := make([]uint64, n)
 	for i := 0; i < n; i++ {
 		in[i] = val
-
-		// Don't create a range for the special 1 selectors (0,1)
-		if val != 1 {
-			in[i] = val / uint64(i+1)
-		}
 		enc.Write(in[i])
 	}
 
@@ -127,6 +134,10 @@ func testEncode(t *testing.T, n int, val uint64) {
 	dec := simple8b.NewDecoder(encoded)
 	i := 0
 	for dec.Next() {
+		if i >= len(in) {
+			t.Fatalf("Decoded too many values: got %v, exp %v", i, len(in))
+		}
+
 		if dec.Read() != in[i] {
 			t.Fatalf("Decoded[%d] != %v, got %v", i, in[i], dec.Read())
 		}

@@ -13,6 +13,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/jwilder/encoding/bitops"
 	"github.com/jwilder/encoding/simple8b"
 )
 
@@ -36,7 +37,7 @@ type Decoder interface {
 }
 
 type encoder struct {
-	ts []int64
+	ts []uint64
 }
 
 func NewEncoder() Encoder {
@@ -44,25 +45,22 @@ func NewEncoder() Encoder {
 }
 
 func (e *encoder) Write(t time.Time) {
-	e.ts = append(e.ts, t.UnixNano())
+	e.ts = append(e.ts, uint64(t.UnixNano()))
 }
 
-func (e *encoder) reduce() (min, max, divisor int64, rle bool, deltas []int64) {
-	deltas = make([]int64, len(e.ts))
-	copy(deltas, e.ts)
-
+func (e *encoder) reduce() (min, max, divisor uint64, rle bool, deltas []uint64) {
+	deltas = e.ts
 	min, max, divisor = e.ts[0], 0, 1e12
 
+	rle = true
 	// First differential encode the values in place
 	for i := len(deltas) - 1; i > 0; i-- {
-		deltas[i] = deltas[i] - deltas[i-1]
+		dgap := int64(deltas[i] - deltas[i-1])
+		deltas[i] = bitops.ZigZagEncode64(dgap)
 
 		// We're also want to keep track of the min, max and divisor so we don't
 		// have to loop again
 		v := deltas[i]
-		if v < min {
-			min = v
-		}
 
 		if v > max {
 			max = v
@@ -74,18 +72,14 @@ func (e *encoder) reduce() (min, max, divisor int64, rle bool, deltas []int64) {
 			}
 			divisor /= 10
 		}
+		rle = i != 0 || rle && (deltas[i-1] == deltas[i])
 	}
 
-	// Are the deltas able to be run-length encoded?
-	rle = true
-	for i := 1; i < len(deltas); i++ {
-		deltas[i] = (deltas[i] - min) / divisor
-		// Skip the first value || see if prev = curr
-		rle = i == 1 || rle && (deltas[i-1] == deltas[i])
-	}
-
-	rle = rle && len(deltas) > 1
 	return
+}
+
+func (e *encoder) SetTimes(t []uint64) {
+	e.ts = t
 }
 
 func (e *encoder) Bytes() ([]byte, error) {
@@ -95,7 +89,7 @@ func (e *encoder) Bytes() ([]byte, error) {
 
 	min, max, mod, rle, dts := e.reduce()
 
-	// The deltas are all the same, so we can run-lenght encode them
+	// The deltas are all the same, so we can run-length encode them
 	if rle && len(e.ts) > 60 {
 		return e.encodeRLE(e.ts[0], e.ts[1]-e.ts[0], mod, len(e.ts))
 	}
@@ -108,7 +102,8 @@ func (e *encoder) Bytes() ([]byte, error) {
 	return e.encodePacked(min, mod, dts)
 }
 
-func (e *encoder) encodePacked(min, mod int64, dts []int64) ([]byte, error) {
+func (e *encoder) encodePacked(min, mod uint64, dts []uint64) ([]byte, error) {
+
 	enc := simple8b.NewEncoder()
 	for _, v := range dts[1:] {
 		enc.Write(uint64(v))
@@ -141,7 +136,7 @@ func (e *encoder) encodeRaw() ([]byte, error) {
 	return b, nil
 }
 
-func (e *encoder) encodeRLE(first, delta, mod int64, n int) ([]byte, error) {
+func (e *encoder) encodeRLE(first, delta, mod uint64, n int) ([]byte, error) {
 	// Large varints can take up to 10 bytes
 	b := make([]byte, 1+10*3)
 
@@ -161,7 +156,7 @@ func (e *encoder) encodeRLE(first, delta, mod int64, n int) ([]byte, error) {
 
 type decoder struct {
 	v  time.Time
-	ts []int64
+	ts []uint64
 }
 
 func NewDecoder(b []byte) Decoder {
@@ -174,7 +169,7 @@ func (d *decoder) Next() bool {
 	if len(d.ts) == 0 {
 		return false
 	}
-	d.v = time.Unix(0, d.ts[0])
+	d.v = time.Unix(0, int64(d.ts[0]))
 	d.ts = d.ts[1:]
 	return true
 }
@@ -201,21 +196,21 @@ func (d *decoder) decode(b []byte) {
 }
 
 func (d *decoder) decodePacked(b []byte) {
-	mod := int64(math.Pow10(int(b[0] & 0xF)))
-	min := int64(binary.BigEndian.Uint64(b[1:9]))
-	first := int64(binary.BigEndian.Uint64(b[9:17]))
+	//mod := uint64(math.Pow10(int(b[0] & 0xF)))
+	//min := uint64(binary.BigEndian.Uint64(b[1:9]))
+	first := uint64(binary.BigEndian.Uint64(b[9:17]))
 
 	enc := simple8b.NewDecoder(b[17:])
 
-	deltas := []int64{first}
+	deltas := []uint64{first}
 	for enc.Next() {
-		deltas = append(deltas, int64(enc.Read()))
+		deltas = append(deltas, enc.Read())
 	}
 
 	// Compute the prefix sum and scale the deltas back up
 	for i := 1; i < len(deltas); i++ {
-		deltas[i] = (deltas[i] * mod) + min
-		deltas[i] = deltas[i-1] + deltas[i]
+		dgap := bitops.ZigZagDecode64(deltas[i])
+		deltas[i] = uint64(int64(deltas[i-1]) + dgap)
 	}
 
 	d.ts = deltas
@@ -235,6 +230,8 @@ func (d *decoder) decodeRLE(b []byte) {
 	// Next 1-10 bytes is our (scaled down by factor of 10) run length values
 	value, n := binary.Uvarint(b[i:])
 
+	value = uint64(bitops.ZigZagDecode64(value))
+
 	// Scale the value back up
 	value *= uint64(mod)
 	i += n
@@ -243,13 +240,13 @@ func (d *decoder) decodeRLE(b []byte) {
 	count, n := binary.Uvarint(b[i:])
 
 	// Rebuild construct the original values now
-	deltas := make([]int64, count)
+	deltas := make([]uint64, count)
 	for i := range deltas {
-		deltas[i] = int64(value)
+		deltas[i] = value
 	}
 
 	// Reverse the delta-encoding
-	deltas[0] = int64(first)
+	deltas[0] = first
 	for i := 1; i < len(deltas); i++ {
 		deltas[i] = deltas[i-1] + deltas[i]
 	}
@@ -258,8 +255,14 @@ func (d *decoder) decodeRLE(b []byte) {
 }
 
 func (d *decoder) decodeRaw(b []byte) {
-	d.ts = make([]int64, len(b)/8)
+	d.ts = make([]uint64, len(b)/8)
 	for i := range d.ts {
-		d.ts[i] = int64(binary.BigEndian.Uint64(b[i*8 : i*8+8]))
+		d.ts[i] = binary.BigEndian.Uint64(b[i*8 : i*8+8])
+
+		delta := bitops.ZigZagDecode64(d.ts[i])
+		// Compute the prefix sum and scale the deltas back up
+		if i > 0 {
+			d.ts[i] = uint64(int64(d.ts[i-1]) + delta)
+		}
 	}
 }
