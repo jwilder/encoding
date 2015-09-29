@@ -20,9 +20,9 @@ var selector [9]packing = [9]packing{
 	packing{1, 28, unpack1, pack1},
 }
 
-// Encode returns a packed slice of the values from src.  It a value is over
-// 2 << 28, an error is returned.
-func Encode(src []uint32) ([]uint32, error) {
+// EncodeAll returns a packed slice of the values from src.  It a value is over
+// 1 << 28, an error is returned.
+func EncodeAll(src []uint32) ([]uint32, error) {
 	i := 0
 	dst := make([]uint32, len(src))
 	j := 0
@@ -68,8 +68,8 @@ func Encode(src []uint32) ([]uint32, error) {
 	return dst[:j], nil
 }
 
-// Decode returns the uncompressed values from in
-func Decode(dst, src []uint32) error {
+// DecodeAll returns the uncompressed values from in
+func DecodeAll(dst, src []uint32) error {
 	j := 0
 	for _, v := range src {
 		sel := v >> 28

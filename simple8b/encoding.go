@@ -1,7 +1,7 @@
 // Package simple8b implements the 64bit integer encoding algoritm as published
 // by Ann and Moffat in "Index compression using 64-bit words", Softw. Pract. Exper. 2010; 40:131–147
 //
-// It is capable of encoding multiple integers with values betweeen 0 and to 2^60 -1, in a single word.
+// It is capable of encoding multiple integers with values betweeen 0 and to 1^60 -1, in a single word.
 package simple8b
 
 // Simple8b is 64bit word-sized encoder that packs multiple integers into a single word using
@@ -221,7 +221,10 @@ var selector [16]packing = [16]packing{
 	packing{1, 60, unpack1, pack1},
 }
 
-func Encode(src []uint64) (uint64, int, error) {
+// Encode packs as many values into a single uint64.  It returns the packed
+// uint64, how many values from src were packed, or an error if the values exceed
+// the maximum value range.
+func Encode(src []uint64) (value uint64, n int, err error) {
 	if canPack(src, 240, 0) {
 		return uint64(0), 240, nil
 	} else if canPack(src, 120, 0) {
@@ -334,7 +337,7 @@ func EncodeAll(src []uint64) ([]uint64, error) {
 	return dst[:j], nil
 }
 
-func Decode(dst []uint64, v uint64) (int, error) {
+func Decode(dst []uint64, v uint64) (n int, err error) {
 	sel := v >> 60
 	if sel >= 16 {
 		return 0, fmt.Errorf("invalid selector value: %b", sel)
@@ -345,7 +348,7 @@ func Decode(dst []uint64, v uint64) (int, error) {
 
 // Decode writes the uncompressed values from src to dst.  It returns the number
 // of values written or an error.
-func DecodeAll(dst, src []uint64) (int, error) {
+func DecodeAll(dst, src []uint64) (value int, err error) {
 	j := 0
 	for _, v := range src {
 		sel := v >> 60

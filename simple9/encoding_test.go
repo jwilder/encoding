@@ -30,13 +30,13 @@ func Test_1bit(t *testing.T) {
 	for i := 0; i < 28; i++ {
 		in[i] = 1
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := len(in)/28, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := 28, len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -53,13 +53,13 @@ func Test_1bit_Multiple(t *testing.T) {
 	for i := 0; i < 28*2; i++ {
 		in[i] = 1
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := len(in)/28, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -78,13 +78,13 @@ func Test_2bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 3
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -102,13 +102,13 @@ func Test_3bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 7
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -126,13 +126,13 @@ func Test_4bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 15
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -150,13 +150,13 @@ func Test_5bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 31
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -174,13 +174,13 @@ func Test_7bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 63
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -198,13 +198,13 @@ func Test_9bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 511
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -222,14 +222,14 @@ func Test_14bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 16383
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -247,14 +247,14 @@ func Test_28bit(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 268435455
 	}
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 
 	if exp, got := 1, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -272,7 +272,7 @@ func Test_TooBig(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 2<<31 - 1
 	}
-	_, err := Encode(in)
+	_, err := EncodeAll(in)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -285,14 +285,14 @@ func Test_FewValues(t *testing.T) {
 		in[i] = 15
 	}
 	in = in[:len(in)-1]
-	encoded, _ := Encode(in)
+	encoded, _ := EncodeAll(in)
 
 	if exp, got := 2, len(encoded); got != exp {
 		t.Fatalf("Encode len mismatch: exp %v, got %v", exp, got)
 	}
 
 	decoded := make([]uint32, len(in))
-	_ = Decode(decoded, encoded)
+	_ = DecodeAll(decoded, encoded)
 	if exp, got := len(in), len(decoded); got != exp {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
@@ -304,7 +304,7 @@ func Test_FewValues(t *testing.T) {
 	}
 }
 
-func BenchmarkEncode(b *testing.B) {
+func BenchmarkEncodeAll(b *testing.B) {
 	total := 0
 	x := make([]uint32, 1024)
 	for i := 0; i < len(x); i++ {
@@ -312,27 +312,27 @@ func BenchmarkEncode(b *testing.B) {
 	}
 
 	for i := 0; i < b.N; i++ {
-		Encode(x)
+		EncodeAll(x)
 		b.SetBytes(int64(len(x) * 4))
 		total += len(x)
 	}
 }
 
-func BenchmarkDecode(b *testing.B) {
+func BenchmarkDecodeAll(b *testing.B) {
 	total := 0
 
 	x := make([]uint32, 1024)
 	for i := 0; i < len(x); i++ {
 		x[i] = uint32(15)
 	}
-	y, _ := Encode(x)
+	y, _ := EncodeAll(x)
 
 	decoded := make([]uint32, len(x))
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_ = Decode(decoded, y)
+		_ = DecodeAll(decoded, y)
 		b.SetBytes(int64(len(decoded) * 4))
 		total += len(decoded)
 	}
