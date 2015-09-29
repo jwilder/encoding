@@ -110,7 +110,7 @@ func (e *encoder) flush() error {
 	}
 
 	// encode as many values into one as we can
-	encoded, n, err := encode(e.buf[e.h:e.t])
+	encoded, n, err := Encode(e.buf[e.h:e.t])
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (d *decoder) read() {
 
 	v := binary.BigEndian.Uint64(d.bytes[:8])
 	d.bytes = d.bytes[8:]
-	d.n, _ = DecodeSingle(d.buf, v)
+	d.n, _ = Decode(d.buf, v)
 	d.i = 0
 }
 
@@ -221,7 +221,7 @@ var selector [16]packing = [16]packing{
 	packing{1, 60, unpack1, pack1},
 }
 
-func encode(src []uint64) (uint64, int, error) {
+func Encode(src []uint64) (uint64, int, error) {
 	if canPack(src, 240, 0) {
 		return uint64(0), 240, nil
 	} else if canPack(src, 120, 0) {
@@ -265,7 +265,7 @@ func encode(src []uint64) (uint64, int, error) {
 // Encode returns a packed slice of the values from src.  If a value is over
 // 1 << 60, an error is returned.  The input src is modified to avoid extra
 // allocations.  If you need to re-use, use a copy.
-func Encode(src []uint64) ([]uint64, error) {
+func EncodeAll(src []uint64) ([]uint64, error) {
 	i := 0
 
 	// Re-use the input slice and write encoded values back in place
@@ -334,7 +334,7 @@ func Encode(src []uint64) ([]uint64, error) {
 	return dst[:j], nil
 }
 
-func DecodeSingle(dst []uint64, v uint64) (int, error) {
+func Decode(dst []uint64, v uint64) (int, error) {
 	sel := v >> 60
 	if sel >= 16 {
 		return 0, fmt.Errorf("invalid selector value: %b", sel)
@@ -345,7 +345,7 @@ func DecodeSingle(dst []uint64, v uint64) (int, error) {
 
 // Decode writes the uncompressed values from src to dst.  It returns the number
 // of values written or an error.
-func Decode(dst, src []uint64) (int, error) {
+func DecodeAll(dst, src []uint64) (int, error) {
 	j := 0
 	for _, v := range src {
 		sel := v >> 60

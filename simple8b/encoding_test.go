@@ -16,10 +16,10 @@ type byteSetter interface {
 
 func Test_Encode_NoValues(t *testing.T) {
 	var in []uint64
-	encoded, _ := simple8b.Encode(in)
+	encoded, _ := simple8b.EncodeAll(in)
 
 	decoded := make([]uint64, len(in))
-	n, _ := simple8b.Decode(decoded, encoded)
+	n, _ := simple8b.DecodeAll(decoded, encoded)
 
 	if len(in) != len(decoded[:n]) {
 		t.Fatalf("Len mismatch: got %v, exp %v", len(decoded), len(in))
@@ -32,7 +32,7 @@ func Test_TooBig(t *testing.T) {
 	for i := 0; i < values; i++ {
 		in[i] = 2<<61 - 1
 	}
-	_, err := simple8b.Encode(in)
+	_, err := simple8b.EncodeAll(in)
 	if err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -194,7 +194,7 @@ func BenchmarkEncode(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		simple8b.Encode(x)
+		simple8b.EncodeAll(x)
 		b.SetBytes(int64(len(x) * 8))
 		total += len(x)
 	}
@@ -221,14 +221,14 @@ func BenchmarkDecode(b *testing.B) {
 	for i := 0; i < len(x); i++ {
 		x[i] = uint64(10)
 	}
-	y, _ := simple8b.Encode(x)
+	y, _ := simple8b.EncodeAll(x)
 
 	decoded := make([]uint64, len(x))
 
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, _ = simple8b.Decode(decoded, y)
+		_, _ = simple8b.DecodeAll(decoded, y)
 		b.SetBytes(int64(len(decoded) * 8))
 		total += len(decoded)
 	}
