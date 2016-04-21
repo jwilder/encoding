@@ -23,29 +23,13 @@ package simple8b
 import (
 	"encoding/binary"
 	"fmt"
+	"unsafe"
 )
 
 const MaxValue = (1 << 60) - 1
 
 // Encoder converts a stream of unsigned 64bit integers to a compressed byte slice.
-type Encoder interface {
-	// Write writes a uint64 to the stream.
-	Write(v uint64) error
-
-	// Bytes returns the compressed uint64 as a byte slice.
-	Bytes() ([]byte, error)
-
-	Reset()
-}
-
-// Decoder converts a compressed byte slice to a stream of unsigned 64bit integers.
-type Decoder interface {
-	Next() bool
-	Read() uint64
-	SetBytes(b []byte)
-}
-
-type encoder struct {
+type Encoder struct {
 	// most recently written integers that have not been flushed
 	buf []uint64
 
@@ -64,28 +48,28 @@ type encoder struct {
 }
 
 // NewEncoder returns an Encoder able to convert uint64s to compressed byte slices
-func NewEncoder() Encoder {
-	return &encoder{
+func NewEncoder() *Encoder {
+	return &Encoder{
 		buf:   make([]uint64, 240),
 		b:     make([]byte, 8),
 		bytes: make([]byte, 128),
 	}
 }
 
-func (e *encoder) SetValues(v []uint64) {
+func (e *Encoder) SetValues(v []uint64) {
 	e.buf = v
 	e.t = len(v)
 	e.h = 0
 	e.bytes = e.bytes[:0]
 }
 
-func (e *encoder) Reset() {
+func (e *Encoder) Reset() {
 	e.t = 0
 	e.h = 0
 	e.bytes = e.bytes[:0]
 }
 
-func (e *encoder) Write(v uint64) error {
+func (e *Encoder) Write(v uint64) error {
 	if e.t >= len(e.buf) {
 		if err := e.flush(); err != nil {
 			return err
@@ -104,7 +88,7 @@ func (e *encoder) Write(v uint64) error {
 	return nil
 }
 
-func (e *encoder) flush() error {
+func (e *Encoder) flush() error {
 	if e.t == 0 {
 		return nil
 	}
@@ -135,7 +119,7 @@ func (e *encoder) flush() error {
 	return nil
 }
 
-func (e *encoder) Bytes() ([]byte, error) {
+func (e *Encoder) Bytes() ([]byte, error) {
 	for e.t > 0 {
 		if err := e.flush(); err != nil {
 			return nil, err
@@ -145,24 +129,24 @@ func (e *encoder) Bytes() ([]byte, error) {
 	return e.bytes[:e.bp], nil
 }
 
-type decoder struct {
+// Decoder converts a compressed byte slice to a stream of unsigned 64bit integers.
+type Decoder struct {
 	bytes []byte
-	buf   []uint64
+	buf   [240]uint64
 	i     int
 	n     int
 }
 
 // NewDecoder returns a Decoder from a byte slice
-func NewDecoder(b []byte) Decoder {
-	return &decoder{
+func NewDecoder(b []byte) *Decoder {
+	return &Decoder{
 		bytes: b,
-		buf:   make([]uint64, 240),
 	}
 }
 
 // Next returns true if there are remaining values to be read.  Successive
 // calls to Next advance the current element pointer.
-func (d *decoder) Next() bool {
+func (d *Decoder) Next() bool {
 	d.i += 1
 
 	if d.i >= d.n {
@@ -172,7 +156,7 @@ func (d *decoder) Next() bool {
 	return len(d.bytes) > 0 || (d.i >= 0 && d.i < d.n)
 }
 
-func (d *decoder) SetBytes(b []byte) {
+func (d *Decoder) SetBytes(b []byte) {
 	d.bytes = b
 	d.i = 0
 	d.n = 0
@@ -180,25 +164,25 @@ func (d *decoder) SetBytes(b []byte) {
 
 // Read returns the current value.  Successive calls to Read return the same
 // value.
-func (d *decoder) Read() uint64 {
+func (d *Decoder) Read() uint64 {
 	v := d.buf[d.i]
 	return v
 }
 
-func (d *decoder) read() {
+func (d *Decoder) read() {
 	if len(d.bytes) == 0 {
 		return
 	}
 
 	v := binary.BigEndian.Uint64(d.bytes[:8])
 	d.bytes = d.bytes[8:]
-	d.n, _ = Decode(d.buf, v)
+	d.n, _ = Decode(&d.buf, v)
 	d.i = 0
 }
 
 type packing struct {
 	n, bit int
-	unpack func(uint64, []uint64)
+	unpack func(uint64, *[240]uint64)
 	pack   func([]uint64) uint64
 }
 
@@ -337,7 +321,7 @@ func EncodeAll(src []uint64) ([]uint64, error) {
 	return dst[:j], nil
 }
 
-func Decode(dst []uint64, v uint64) (n int, err error) {
+func Decode(dst *[240]uint64, v uint64) (n int, err error) {
 	sel := v >> 60
 	if sel >= 16 {
 		return 0, fmt.Errorf("invalid selector value: %b", sel)
@@ -355,7 +339,7 @@ func DecodeAll(dst, src []uint64) (value int, err error) {
 		if sel >= 16 {
 			return 0, fmt.Errorf("invalid selector value: %b", sel)
 		}
-		selector[sel].unpack(v, dst[j:])
+		selector[sel].unpack(v, (*[240]uint64)(unsafe.Pointer(&dst[j])))
 		j += selector[sel].n
 	}
 	return j, nil
@@ -657,19 +641,19 @@ func pack1(src []uint64) uint64 {
 		src[0]
 }
 
-func unpack240(v uint64, dst []uint64) {
+func unpack240(v uint64, dst *[240]uint64) {
 	for i := range dst {
 		dst[i] = 1
 	}
 }
 
-func unpack120(v uint64, dst []uint64) {
+func unpack120(v uint64, dst *[240]uint64) {
 	for i := range dst {
 		dst[i] = 1
 	}
 }
 
-func unpack60(v uint64, dst []uint64) {
+func unpack60(v uint64, dst *[240]uint64) {
 	dst[0] = v & 1
 	dst[1] = (v >> 1) & 1
 	dst[2] = (v >> 2) & 1
@@ -732,7 +716,7 @@ func unpack60(v uint64, dst []uint64) {
 	dst[59] = (v >> 59) & 1
 }
 
-func unpack30(v uint64, dst []uint64) {
+func unpack30(v uint64, dst *[240]uint64) {
 	dst[0] = v & 3
 	dst[1] = (v >> 2) & 3
 	dst[2] = (v >> 4) & 3
@@ -765,7 +749,7 @@ func unpack30(v uint64, dst []uint64) {
 	dst[29] = (v >> 58) & 3
 }
 
-func unpack20(v uint64, dst []uint64) {
+func unpack20(v uint64, dst *[240]uint64) {
 	dst[0] = v & 7
 	dst[1] = (v >> 3) & 7
 	dst[2] = (v >> 6) & 7
@@ -788,7 +772,7 @@ func unpack20(v uint64, dst []uint64) {
 	dst[19] = (v >> 57) & 7
 }
 
-func unpack15(v uint64, dst []uint64) {
+func unpack15(v uint64, dst *[240]uint64) {
 	dst[0] = v & 15
 	dst[1] = (v >> 4) & 15
 	dst[2] = (v >> 8) & 15
@@ -806,7 +790,7 @@ func unpack15(v uint64, dst []uint64) {
 	dst[14] = (v >> 56) & 15
 }
 
-func unpack12(v uint64, dst []uint64) {
+func unpack12(v uint64, dst *[240]uint64) {
 	dst[0] = v & 31
 	dst[1] = (v >> 5) & 31
 	dst[2] = (v >> 10) & 31
@@ -821,7 +805,7 @@ func unpack12(v uint64, dst []uint64) {
 	dst[11] = (v >> 55) & 31
 }
 
-func unpack10(v uint64, dst []uint64) {
+func unpack10(v uint64, dst *[240]uint64) {
 	dst[0] = v & 63
 	dst[1] = (v >> 6) & 63
 	dst[2] = (v >> 12) & 63
@@ -834,7 +818,7 @@ func unpack10(v uint64, dst []uint64) {
 	dst[9] = (v >> 54) & 63
 }
 
-func unpack8(v uint64, dst []uint64) {
+func unpack8(v uint64, dst *[240]uint64) {
 	dst[0] = v & 127
 	dst[1] = (v >> 7) & 127
 	dst[2] = (v >> 14) & 127
@@ -845,7 +829,7 @@ func unpack8(v uint64, dst []uint64) {
 	dst[7] = (v >> 49) & 127
 }
 
-func unpack7(v uint64, dst []uint64) {
+func unpack7(v uint64, dst *[240]uint64) {
 	dst[0] = v & 255
 	dst[1] = (v >> 8) & 255
 	dst[2] = (v >> 16) & 255
@@ -855,7 +839,7 @@ func unpack7(v uint64, dst []uint64) {
 	dst[6] = (v >> 48) & 255
 }
 
-func unpack6(v uint64, dst []uint64) {
+func unpack6(v uint64, dst *[240]uint64) {
 	dst[0] = v & 1023
 	dst[1] = (v >> 10) & 1023
 	dst[2] = (v >> 20) & 1023
@@ -864,7 +848,7 @@ func unpack6(v uint64, dst []uint64) {
 	dst[5] = (v >> 50) & 1023
 }
 
-func unpack5(v uint64, dst []uint64) {
+func unpack5(v uint64, dst *[240]uint64) {
 	dst[0] = v & 4095
 	dst[1] = (v >> 12) & 4095
 	dst[2] = (v >> 24) & 4095
@@ -872,24 +856,24 @@ func unpack5(v uint64, dst []uint64) {
 	dst[4] = (v >> 48) & 4095
 }
 
-func unpack4(v uint64, dst []uint64) {
+func unpack4(v uint64, dst *[240]uint64) {
 	dst[0] = v & 32767
 	dst[1] = (v >> 15) & 32767
 	dst[2] = (v >> 30) & 32767
 	dst[3] = (v >> 45) & 32767
 }
 
-func unpack3(v uint64, dst []uint64) {
+func unpack3(v uint64, dst *[240]uint64) {
 	dst[0] = v & 1048575
 	dst[1] = (v >> 20) & 1048575
 	dst[2] = (v >> 40) & 1048575
 }
 
-func unpack2(v uint64, dst []uint64) {
+func unpack2(v uint64, dst *[240]uint64) {
 	dst[0] = v & 1073741823
 	dst[1] = (v >> 30) & 1073741823
 }
 
-func unpack1(v uint64, dst []uint64) {
+func unpack1(v uint64, dst *[240]uint64) {
 	dst[0] = v & 1152921504606846975
 }

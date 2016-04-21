@@ -6,14 +6,6 @@ import (
 	"github.com/jwilder/encoding/simple8b"
 )
 
-type valueSetter interface {
-	SetValues(v []uint64)
-}
-
-type byteSetter interface {
-	SetBytes(v []byte)
-}
-
 func Test_Encode_NoValues(t *testing.T) {
 	var in []uint64
 	encoded, _ := simple8b.EncodeAll(in)
@@ -209,7 +201,7 @@ func BenchmarkEncoder(b *testing.B) {
 	enc := simple8b.NewEncoder()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		enc.(valueSetter).SetValues(x)
+		enc.SetValues(x)
 		enc.Bytes()
 		b.SetBytes(int64(len(x)) * 8)
 	}
@@ -247,7 +239,7 @@ func BenchmarkDecoder(b *testing.B) {
 
 	dec := simple8b.NewDecoder(y)
 	for i := 0; i < b.N; i++ {
-		dec.(byteSetter).SetBytes(y)
+		dec.SetBytes(y)
 		j := 0
 		for dec.Next() {
 			j += 1
