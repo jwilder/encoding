@@ -177,6 +177,13 @@ func Test_Encode_ValueTooLarge(t *testing.T) {
 	}
 }
 
+func Test_Decode_NotEnoughBytes(t *testing.T) {
+	dec := simple8b.NewDecoder([]byte{0})
+	if dec.Next() {
+		t.Fatalf("Expected Next to return false but it returned true")
+	}
+}
+
 func BenchmarkEncode(b *testing.B) {
 	total := 0
 	x := make([]uint64, 1024)

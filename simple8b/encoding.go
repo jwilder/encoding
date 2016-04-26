@@ -153,7 +153,7 @@ func (d *Decoder) Next() bool {
 		d.read()
 	}
 
-	return len(d.bytes) > 0 || (d.i >= 0 && d.i < d.n)
+	return len(d.bytes) >= 8 || (d.i >= 0 && d.i < d.n)
 }
 
 func (d *Decoder) SetBytes(b []byte) {
@@ -170,7 +170,7 @@ func (d *Decoder) Read() uint64 {
 }
 
 func (d *Decoder) read() {
-	if len(d.bytes) == 0 {
+	if len(d.bytes) < 8 {
 		return
 	}
 
