@@ -66,7 +66,11 @@ func (e *Encoder) SetValues(v []uint64) {
 func (e *Encoder) Reset() {
 	e.t = 0
 	e.h = 0
-	e.bytes = e.bytes[:0]
+	e.bp = 0
+
+        e.buf = e.buf[:240]
+        e.b = e.b[:8]
+        e.bytes = e.bytes[:128]
 }
 
 func (e *Encoder) Write(v uint64) error {
