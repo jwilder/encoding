@@ -68,9 +68,9 @@ func (e *Encoder) Reset() {
 	e.h = 0
 	e.bp = 0
 
-        e.buf = e.buf[:240]
-        e.b = e.b[:8]
-        e.bytes = e.bytes[:128]
+	e.buf = e.buf[:240]
+	e.b = e.b[:8]
+	e.bytes = e.bytes[:128]
 }
 
 func (e *Encoder) Write(v uint64) error {
