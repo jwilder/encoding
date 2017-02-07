@@ -140,6 +140,14 @@ func testEncode(t *testing.T, n int, val uint64) {
 		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
 	}
 
+	got, err := simple8b.CountBytes(encoded)
+	if err != nil {
+		t.Fatalf("Unexpected error in Count: %v", err)
+	}
+	if got != n {
+		t.Fatalf("Count mismatch: got %v, exp %v", got, n)
+	}
+
 }
 
 func Test_Bytes(t *testing.T) {
