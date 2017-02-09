@@ -209,6 +209,35 @@ var selector [16]packing = [16]packing{
 	packing{1, 60, unpack1, pack1},
 }
 
+// Count returns the number of integers encoded in the byte slice
+func CountBytes(b []byte) (int, error) {
+	var count int
+	for len(b) >= 8 {
+		v := binary.BigEndian.Uint64(b[:8])
+		b = b[8:]
+		n, err := Count(v)
+		if err != nil {
+			return 0, err
+		}
+
+		count += n
+	}
+
+	if len(b) > 0 {
+		return 0, fmt.Errorf("invalid slice len remaining: %v", len(b))
+	}
+	return count, nil
+}
+
+// Count returns the number of integers encoded within an uint64
+func Count(v uint64) (int, error) {
+	sel := v >> 60
+	if sel >= 16 {
+		return 0, fmt.Errorf("invalid selector value: %v", sel)
+	}
+	return selector[sel].n, nil
+}
+
 // Encode packs as many values into a single uint64.  It returns the packed
 // uint64, how many values from src were packed, or an error if the values exceed
 // the maximum value range.
