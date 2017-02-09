@@ -254,3 +254,24 @@ func BenchmarkDecoder(b *testing.B) {
 		b.SetBytes(int64(j * 8))
 	}
 }
+
+var decResult *simple8b.Decoder
+
+func Benchmark_NewDecoder(b *testing.B) {
+	buf := make([]byte, 100)
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		decResult = simple8b.NewDecoder(buf[9:])
+	}
+}
+
+func BenchmarkDecoder_New(b *testing.B) {
+	buf := make([]byte, 100)
+	b.ResetTimer()
+	b.ReportAllocs()
+	decResult = simple8b.NewDecoder(buf[9:])
+	for i := 0; i < b.N; i++ {
+		decResult.Reset(buf[9:])
+	}
+}
