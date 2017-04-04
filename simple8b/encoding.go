@@ -148,6 +148,13 @@ func NewDecoder(b []byte) *Decoder {
 	}
 }
 
+// New initialies resets d so it can be used with a new stream.
+func (d *Decoder) Reset(b []byte) {
+	d.i, d.n = 0, 0
+	// d.buf does not need re-initialising because it's only read using d.i.
+	d.bytes = b
+}
+
 // Next returns true if there are remaining values to be read.  Successive
 // calls to Next advance the current element pointer.
 func (d *Decoder) Next() bool {
