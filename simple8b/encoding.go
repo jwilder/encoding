@@ -215,12 +215,12 @@ func CountBytes(b []byte) (int, error) {
 	for len(b) >= 8 {
 		v := binary.BigEndian.Uint64(b[:8])
 		b = b[8:]
-		n, err := Count(v)
-		if err != nil {
-			return 0, err
-		}
 
-		count += n
+		sel := v >> 60
+		if sel >= 16 {
+			return 0, fmt.Errorf("invalid selector value: %v", sel)
+		}
+		count += selector[sel].n
 	}
 
 	if len(b) > 0 {
@@ -236,6 +236,69 @@ func Count(v uint64) (int, error) {
 		return 0, fmt.Errorf("invalid selector value: %v", sel)
 	}
 	return selector[sel].n, nil
+}
+
+func ForEach(b []byte, fn func(v uint64) bool) error {
+	for len(b) >= 8 {
+		v := binary.BigEndian.Uint64(b[:8])
+		b = b[8:]
+
+		sel := v >> 60
+		if sel >= 16 {
+			return fmt.Errorf("invalid selector value: %v", sel)
+		}
+
+		n := selector[sel].n
+		bits := uint(selector[sel].bit)
+		mask := uint64(^(int64(^0) << bits))
+
+		for i := 0; i < n; i++ {
+			val := v & mask
+			if !fn(val) {
+				break
+			}
+			v = v >> bits
+		}
+	}
+	return nil
+}
+
+func CountBytesBetween(b []byte, min, max uint64) (int, error) {
+	var count int
+	for len(b) >= 8 {
+		v := binary.BigEndian.Uint64(b[:8])
+		b = b[8:]
+
+		sel := v >> 60
+		if sel >= 16 {
+			return 0, fmt.Errorf("invalid selector value: %v", sel)
+		}
+		// If the max value that could be encoded by the uint64 is less than the min
+		// skip the whole thing.
+		maxValue := uint64((1 << uint64(selector[sel].bit)) - 1)
+		if maxValue < min {
+			continue
+		}
+
+		mask := uint64(^(int64(^0) << uint(selector[sel].bit)))
+
+		for i := 0; i < selector[sel].n; i++ {
+			val := v & mask
+			println("val = ", val)
+			if val >= min && val < max {
+				count++
+			} else if val > max {
+				break
+			}
+
+			v = v >> uint(selector[sel].bit)
+		}
+	}
+
+	if len(b) > 0 {
+		return 0, fmt.Errorf("invalid slice len remaining: %v", len(b))
+	}
+	return count, nil
 }
 
 // Encode packs as many values into a single uint64.  It returns the packed
