@@ -192,6 +192,86 @@ func Test_Decode_NotEnoughBytes(t *testing.T) {
 	}
 }
 
+func TestCountBytesBetween(t *testing.T) {
+	enc := simple8b.NewEncoder()
+	in := make([]uint64, 8)
+	for i := 0; i < len(in); i++ {
+		in[i] = uint64(i)
+		enc.Write(in[i])
+	}
+
+	encoded, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	dec := simple8b.NewDecoder(encoded)
+	i := 0
+	for dec.Next() {
+		if i >= len(in) {
+			t.Fatalf("Decoded too many values: got %v, exp %v", i, len(in))
+		}
+
+		if dec.Read() != in[i] {
+			t.Fatalf("Decoded[%d] != %v, got %v", i, in[i], dec.Read())
+		}
+		i += 1
+	}
+
+	if exp, got := len(in), i; got != exp {
+		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
+	}
+
+	got, err := simple8b.CountBytesBetween(encoded, 2, 6)
+	if err != nil {
+		t.Fatalf("Unexpected error in Count: %v", err)
+	}
+	if got != 4 {
+		t.Fatalf("Count mismatch: got %v, exp %v", got, 4)
+	}
+}
+
+func TestCountBytesBetween_SkipMin(t *testing.T) {
+	enc := simple8b.NewEncoder()
+	in := make([]uint64, 8)
+	for i := 0; i < len(in); i++ {
+		in[i] = uint64(i)
+		enc.Write(in[i])
+	}
+	in = append(in, 100000)
+	enc.Write(100000)
+
+	encoded, err := enc.Bytes()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	dec := simple8b.NewDecoder(encoded)
+	i := 0
+	for dec.Next() {
+		if i >= len(in) {
+			t.Fatalf("Decoded too many values: got %v, exp %v", i, len(in))
+		}
+
+		if dec.Read() != in[i] {
+			t.Fatalf("Decoded[%d] != %v, got %v", i, in[i], dec.Read())
+		}
+		i += 1
+	}
+
+	if exp, got := len(in), i; got != exp {
+		t.Fatalf("Decode len mismatch: exp %v, got %v", exp, got)
+	}
+
+	got, err := simple8b.CountBytesBetween(encoded, 100000, 100001)
+	if err != nil {
+		t.Fatalf("Unexpected error in Count: %v", err)
+	}
+	if got != 1 {
+		t.Fatalf("Count mismatch: got %v, exp %v", got, 1)
+	}
+}
+
 func BenchmarkEncode(b *testing.B) {
 	total := 0
 	x := make([]uint64, 1024)
