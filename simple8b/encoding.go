@@ -255,7 +255,7 @@ func ForEach(b []byte, fn func(v uint64) bool) error {
 		for i := 0; i < n; i++ {
 			val := v & mask
 			if !fn(val) {
-				break
+				return nil
 			}
 			v = v >> bits
 		}
@@ -284,7 +284,6 @@ func CountBytesBetween(b []byte, min, max uint64) (int, error) {
 
 		for i := 0; i < selector[sel].n; i++ {
 			val := v & mask
-			println("val = ", val)
 			if val >= min && val < max {
 				count++
 			} else if val > max {
