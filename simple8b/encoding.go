@@ -1,5 +1,5 @@
 // Package simple8b implements the 64bit integer encoding algoritm as published
-// by Ann and Moffat in "Index compression using 64-bit words", Softw. Pract. Exper. 2010; 40:131–147
+// by Anh and Moffat in "Index compression using 64-bit words", Softw. Pract. Exper. 2010; 40:131–147
 //
 // It is capable of encoding multiple integers with values betweeen 0 and to 1^60 -1, in a single word.
 package simple8b
